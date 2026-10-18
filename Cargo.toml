@@ -1,0 +1,15 @@
+[package]
+name = "ufos"
+version = "0.1.0"
+edition = "2021"
+authors = ["Nugzari Uzoevi"]
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+subtle = { version = "2.6", default-features = false }
+rand_core = { version = "0.6", default-features = false }
+zeroize = { version = "1.8", default-features = false, features = ["derive"] }
+sha3 = { version = "0.10", default-features = false }
+
+[dev-dependencies]
+rand_chacha = "0.3"
