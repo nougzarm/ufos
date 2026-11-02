@@ -1,10 +1,31 @@
-use core::ops::{Add, Mul, Sub};
-use std::ops::MulAssign;
+use core::ops::{Add, Mul, Neg, Sub};
+use rand::Rng;
+use std::{
+    fmt::Debug,
+    ops::{AddAssign, MulAssign, SubAssign},
+};
 
-pub trait FiniteField: Sized + Add + Sub + Mul + MulAssign + Copy + Clone {
+pub trait FiniteField:
+    Sized
+    + Default
+    + Add<Output = Self>
+    + Sub<Output = Self>
+    + Mul<Output = Self>
+    + Neg<Output = Self>
+    + AddAssign
+    + SubAssign
+    + MulAssign
+    + Copy
+    + Clone
+    + PartialEq
+{
     fn zero() -> Self;
 
     fn one() -> Self;
+
+    fn random<R: Rng + ?Sized>(rng: &mut R) -> Self;
+
+    fn expand_from_seed(seed: &[u8], count: usize) -> Vec<Self>;
 
     fn pow(self, mut exp: u64) -> Self {
         let mut base = self;
@@ -19,12 +40,19 @@ pub trait FiniteField: Sized + Add + Sub + Mul + MulAssign + Copy + Clone {
         }
         acc
     }
+
+    fn inv(&self) -> Self {
+        /* To implement...!!! */
+        Self::one()
+    }
 }
 
 pub trait PrimeField: FiniteField {
     fn as_integer(&self) -> [u8];
 }
 
-pub trait ExtensionConfig<F: FiniteField, const E: usize>: Copy {
-    const REDUCE_COEFFS: [F; E];
+pub trait ExtensionConfig<const DEGREE: usize>: Copy + Default + PartialEq + Debug {
+    type Field: FiniteField;
+
+    const REDUCE_COEFFS: [Self::Field; DEGREE];
 }

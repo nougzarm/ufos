@@ -1,8 +1,13 @@
 use core::ops::{Add, Mul, MulAssign, Sub};
+use rand::Rng;
+use sha3::{
+    digest::{ExtendableOutput, Update, XofReader},
+    Shake256,
+};
+use std::ops::{AddAssign, Neg, SubAssign};
 
 use crate::field::traits::FiniteField;
 
-/* P should be < 2^7 for the Add trait implementation */
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct Fp<const P: u8>(u8);
 
@@ -29,13 +34,53 @@ impl<const P: u8> From<u8> for Fp<P> {
     }
 }
 
-impl<const P: u8> Add for Fp<P> {
-    type Output = Self;
+impl<const P: u8> Add for &Fp<P> {
+    type Output = Fp<P>;
 
     fn add(self, rhs: Self) -> Self::Output {
         let sum = self.0 + rhs.0;
         let reduced = if sum >= P { sum - P } else { sum };
-        Self(reduced)
+        Fp::<P>::from_canonical(reduced)
+    }
+}
+
+impl<const P: u8> Add for Fp<P> {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        &self + &rhs
+    }
+}
+
+impl<const P: u8> AddAssign for Fp<P> {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
+impl<const P: u8> Neg for &Fp<P> {
+    type Output = Fp<P>;
+
+    fn neg(self) -> Self::Output {
+        Fp::<P>::from(P - self.value())
+    }
+}
+
+impl<const P: u8> Neg for Fp<P> {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        -&self
+    }
+}
+
+impl<const P: u8> Sub for &Fp<P> {
+    type Output = Fp<P>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let (diff, borrow) = self.0.overflowing_sub(rhs.0);
+        let corr = if borrow { P } else { 0 };
+        Fp::<P>(diff.wrapping_add(corr))
     }
 }
 
@@ -43,9 +88,23 @@ impl<const P: u8> Sub for Fp<P> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let (diff, borrow) = self.0.overflowing_sub(rhs.0);
-        let corr = if borrow { P } else { 0 };
-        Self(diff.wrapping_add(corr))
+        &self - &rhs
+    }
+}
+
+impl<const P: u8> SubAssign for Fp<P> {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
+    }
+}
+
+impl<const P: u8> Mul for &Fp<P> {
+    type Output = Fp<P>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        let prod = (self.0 as u16) * (rhs.0 as u16);
+
+        Fp::<P>((prod % (P as u16)) as u8)
     }
 }
 
@@ -53,9 +112,7 @@ impl<const P: u8> Mul for Fp<P> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        let prod = (self.0 as u16) * (rhs.0 as u16);
-
-        Self((prod % (P as u16)) as u8)
+        &self * &rhs
     }
 }
 
@@ -72,6 +129,35 @@ impl<const P: u8> FiniteField for Fp<P> {
 
     fn one() -> Self {
         Self::new(1u8)
+    }
+
+    fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
+        let val = rng.gen_range(0..P);
+        Self::from_canonical(val)
+    }
+
+    fn expand_from_seed(seed: &[u8], count: usize) -> Vec<Self> {
+        let mut hasher = Shake256::default();
+        hasher.update(seed);
+        let mut reader = hasher.finalize_xof();
+
+        let mut list = Vec::with_capacity(count);
+        let mut buffer = [0u8; 1];
+
+        while list.len() < count {
+            reader.read(&mut buffer);
+            let val = buffer[0];
+            list.push(Self::from(val));
+        }
+
+        list
+    }
+
+    fn inv(&self) -> Self {
+        assert!(self.0 != 0);
+
+        let p_val = P as u64;
+        self.pow(p_val - 2)
     }
 }
 
@@ -114,30 +200,26 @@ mod tests {
     #[test]
     fn test_exhaustive_ring_axioms_f31() {
         for a_val in 0..31 {
-            let a = F31::from_canonical(a_val);
+            let a = F31::from(a_val);
             for b_val in 0..31 {
-                let b = F31::from_canonical(b_val);
+                let b = F31::from(b_val);
 
-                // Vérification contre l'arithmétique u16 de référence
-                assert_eq!((a + b).value(), (a_val + b_val) % 31);
-                assert_eq!((a - b).value(), (a_val + 31 - b_val) % 31);
-                assert_eq!((a * b).value(), (a_val * b_val) % 31);
+                assert_eq!(a + b, (a_val + b_val).into());
+                assert_eq!(a - b, (a_val + 31 - b_val).into());
+                assert_eq!(a * b, (((a_val as u16 * b_val as u16) % 31) as u8).into());
 
-                // Commutativity
                 assert_eq!(a + b, b + a);
                 assert_eq!(a * b, b * a);
 
-                // Cohérence Add / Sub
                 assert_eq!((a + b) - b, a);
                 assert_eq!((a - b) + b, a);
 
-                // MulAssign
                 let mut acc = a;
                 acc *= b;
                 assert_eq!(acc, a * b);
 
                 for c_val in 0..31 {
-                    let c = F31::from_canonical(c_val);
+                    let c = F31::from(c_val);
                     // Associativité
                     assert_eq!((a + b) + c, a + (b + c));
                     assert_eq!((a * b) * c, a * (b * c));
@@ -151,25 +233,19 @@ mod tests {
 
     #[test]
     fn test_fermat_little_theorem_f31() {
-        // Pour tout a != 0 dans F_p, a^(p-1) == 1
         for a_val in 1..31 {
             let a = F31::new(a_val);
             let mut pow = F31::one();
             for _ in 0..30 {
                 pow *= a;
             }
-            assert_eq!(
-                pow,
-                F31::one(),
-                "Échec du petit théorème de Fermat pour a = {}",
-                a_val
-            );
+            assert_eq!(pow, F31::one());
         }
     }
 
     #[test]
     fn test_boundary_max_prime_near_2_pow_31() {
-        let max_elem = FMersenne::new(MERSENNE_7 - 1); 
+        let max_elem = FMersenne::new(MERSENNE_7 - 1);
         let one = FMersenne::one();
         let zero = FMersenne::zero();
 
