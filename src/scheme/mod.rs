@@ -233,8 +233,8 @@ where
             for i in O..N {
                 v_coeffs[i] = <Fq<P, E, C>>::random(&mut v_rng);
             }
-            let v_str = Matrix::<Fq<P, E, C>>::new(1, V, v_coeffs[O..N].to_vec());
-            let v = Matrix::<Fq<P, E, C>>::new(1, N, v_coeffs.to_vec());
+            let v_str = Matrix::<Fq<P, E, C>>::from((1, V, &v_coeffs[O..N]));
+            let v = Matrix::<Fq<P, E, C>>::from((1, N, &v_coeffs[0..N]));
 
             let mut alpha = [[[Fq::<P, E, C>::zero(); O]; L]; M];
             let mut beta = [[[Fq::<P, E, C>::zero(); O]; L]; M];
@@ -339,7 +339,7 @@ where
 
         let mut pub_eval: Vec<Fq<P, E, C>> = vec![Fq::<P, E, C>::zero(); M];
 
-        let sigma = Matrix::<Fq<P, E, C>>::new(1, N, s.0.to_vec());
+        let sigma = Matrix::<Fq<P, E, C>>::from((1, N, &s.0[0..N]));
 
         for (r, item) in pub_eval.iter_mut().enumerate() {
             for k in 0..L {
