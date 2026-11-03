@@ -10,8 +10,9 @@ impl ExtensionConfig<61> for Level1Config {
 
     const REDUCE_COEFFS: [Self::Field; 61] = {
         let mut coeffs = [Self::Field::new(0); 61];
-        coeffs[0] = Fp::new(3);
-        coeffs[1] = Fp::new(1);
+        coeffs[0] = Fp::new(28);
+        coeffs[1] = Fp::new(6);
+        coeffs[2] = Fp::new(30);
         coeffs
     };
 }
@@ -30,8 +31,8 @@ impl ExtensionConfig<89> for Level3Config {
 
     const REDUCE_COEFFS: [Self::Field; 89] = {
         let mut coeffs = [Self::Field::new(0); 89];
-        coeffs[0] = Fp::new(2);
-        coeffs[1] = Fp::new(1);
+        coeffs[0] = Fp::new(59);
+        coeffs[1] = Fp::new(31);
         coeffs
     };
 }
@@ -50,8 +51,8 @@ impl ExtensionConfig<127> for Level5Config {
 
     const REDUCE_COEFFS: [Self::Field; 127] = {
         let mut coeffs = [Self::Field::new(0); 127];
-        coeffs[0] = Fp::new(4);
-        coeffs[1] = Fp::new(1);
+        coeffs[0] = Fp::new(15);
+        coeffs[6] = Fp::new(1);
         coeffs
     };
 }

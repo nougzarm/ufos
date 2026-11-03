@@ -277,31 +277,29 @@ where
 
 #[cfg(test)]
 mod ufs_tests {
-    use std::assert_ne;
-
     use super::*;
-    use crate::field::prime_field::Fp;
-    use crate::params::F31_61;
+
+    const P: u8 = 61;
+    type F = crate::params::F31_61;
 
     #[test]
-    fn test_ufo_level1_from_params() {
-        let zero = F31_61::zero();
-        let one = F31_61::one();
-        let r = F31_61::random(&mut rand::rngs::OsRng);
+    fn fp_field_laws() {
+        for _ in 0..P {
+            let a = F::random(&mut rand_core::OsRng);
+            assert_eq!(a + F::zero(), a);
+            assert_eq!(a * F::one(), a);
+            assert_eq!(a + (-a), F::zero());
 
-        assert_eq!(r, r * one);
-        assert_eq!(one * one, one);
-        assert_eq!(zero + one, one);
-        assert_ne!(zero + one, zero);
-    }
+            for _ in 0..P {
+                let b = F::random(&mut rand_core::OsRng);
+                assert_eq!(a + b, b + a);
+                assert_eq!(a * b, b * a);
 
-    #[test]
-    fn test_ufo_level1_multiplication() {
-        let mut a = F31_61::zero();
-        a.coeffs[0] = Fp::new(5);
-        a.coeffs[2] = Fp::new(12);
-
-        let one = F31_61::one();
-        assert_eq!(a * one, a);
+                for _ in 0..P {
+                    let c = F::random(&mut rand_core::OsRng);
+                    assert_eq!(a * (b + c), a * b + a * c);
+                }
+            }
+        }
     }
 }

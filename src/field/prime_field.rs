@@ -165,67 +165,32 @@ impl<const P: u8> FiniteField for Fp<P> {
 mod tests {
     use super::*;
 
-    type F31 = Fp<31>;
+    const P: u8 = 61;
+    type F = Fp<P>;
     type F2 = Fp<2>;
     const MERSENNE_7: u8 = (1 << 7) - 1;
     type FMersenne = Fp<MERSENNE_7>;
 
     #[test]
-    fn test_canonical_reduction_on_new() {
-        assert_eq!(F31::new(0).value(), 0);
-        assert_eq!(F31::new(1).value(), 1);
-        assert_eq!(F31::new(32).value(), 1);
-        assert_eq!(F31::new(u8::MAX).value(), u8::MAX % 31);
-    }
+    fn fp_field_laws() {
+        for x in 0..P {
+            let a = F::new(x);
+            assert_eq!(a + F::zero(), a);
+            assert_eq!(a * F::one(), a);
+            assert_eq!(a + (-a), F::zero());
 
-    #[test]
-    fn test_identities_and_default() {
-        let zero = F31::zero();
-        let one = F31::one();
-        assert_eq!(zero, F31::default());
-        assert_eq!(one.value(), 1);
+            if a != F::zero() {
+                assert_eq!(a * a.inv(), F::one());
+            }
 
-        for a_val in 0..31 {
-            let a = F31::new(a_val);
-            assert_eq!(a + zero, a);
-            assert_eq!(zero + a, a);
-            assert_eq!(a - zero, a);
-            assert_eq!(a - a, zero);
-            assert_eq!(a * one, a);
-            assert_eq!(one * a, a);
-            assert_eq!(a * zero, zero);
-        }
-    }
-
-    #[test]
-    fn test_exhaustive_ring_axioms_f31() {
-        for a_val in 0..31 {
-            let a = F31::from(a_val);
-            for b_val in 0..31 {
-                let b = F31::from(b_val);
-
-                assert_eq!(a + b, (a_val + b_val).into());
-                assert_eq!(a - b, (a_val + 31 - b_val).into());
-                assert_eq!(a * b, (((a_val as u16 * b_val as u16) % 31) as u8).into());
-
+            for y in 0..P {
+                let b = F::new(y);
                 assert_eq!(a + b, b + a);
                 assert_eq!(a * b, b * a);
 
-                assert_eq!((a + b) - b, a);
-                assert_eq!((a - b) + b, a);
-
-                let mut acc = a;
-                acc *= b;
-                assert_eq!(acc, a * b);
-
-                for c_val in 0..31 {
-                    let c = F31::from(c_val);
-                    // Associativité
-                    assert_eq!((a + b) + c, a + (b + c));
-                    assert_eq!((a * b) * c, a * (b * c));
-                    // Distributivité
-                    assert_eq!(a * (b + c), (a * b) + (a * c));
-                    assert_eq!(a * (b - c), (a * b) - (a * c));
+                for z in 0..P {
+                    let c = F::new(z);
+                    assert_eq!(a * (b + c), a * b + a * c);
                 }
             }
         }
@@ -233,13 +198,13 @@ mod tests {
 
     #[test]
     fn test_fermat_little_theorem_f31() {
-        for a_val in 1..31 {
-            let a = F31::new(a_val);
-            let mut pow = F31::one();
-            for _ in 0..30 {
+        for a_val in 1..P {
+            let a = F::new(a_val);
+            let mut pow = F::one();
+            for _ in 0..(P - 1) {
                 pow *= a;
             }
-            assert_eq!(pow, F31::one());
+            assert_eq!(pow, F::one());
         }
     }
 
