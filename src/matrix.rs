@@ -48,6 +48,15 @@ where
     }
 }
 
+impl<F> From<(usize, usize, &[F])> for Matrix<F>
+where
+    F: Copy,
+{
+    fn from(value: (usize, usize, &[F])) -> Self {
+        Self::new(value.0, value.1, value.2.to_vec())
+    }
+}
+
 impl<F> Matrix<F>
 where
     F: Copy,
@@ -56,7 +65,7 @@ where
         Self { rows, cols, coeffs }
     }
 
-    pub fn from_matrices(blocs_rows: usize, blocs_cols: usize, matrices: Vec<Matrix<F>>) -> Self {
+    pub fn from_matrices(blocs_rows: usize, blocs_cols: usize, matrices: &[Matrix<F>]) -> Self {
         assert_eq!(blocs_rows * blocs_cols, matrices.len());
         assert!(blocs_rows > 0 && blocs_cols > 0);
 
@@ -525,7 +534,7 @@ mod tests {
         let a1 = Matrix::<F31>::from([[10], [11], [12], [13]]);
         let a3 = Matrix::<F31>::from([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]);
 
-        let global_mat = Matrix::from_matrices(2, 2, vec![a0, a2, a1, a3]);
+        let global_mat = Matrix::from_matrices(2, 2, &[a0, a2, a1, a3]);
 
         assert_eq!(global_mat.rows, 5);
         assert_eq!(global_mat.cols, 5);

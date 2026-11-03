@@ -1,5 +1,5 @@
+use std::assert_eq;
 use std::marker::PhantomData;
-use std::{assert_eq, println};
 
 use crate::field::extension::Fq;
 use crate::field::prime_field::Fp;
@@ -64,30 +64,27 @@ where
 
         let a_1: [[Matrix<Fq<P, E, C>>; L]; M] = core::array::from_fn(|r| {
             let a_1_r: [Matrix<Fq<P, E, C>>; L] = core::array::from_fn(|k| {
-                let a_1_coeffs = public_elements
-                    [(r * L + k) * (N * N - O * O)..(r * L + k) * (N * N - O * O) + V * O]
-                    .to_vec();
-                Matrix::<Fq<P, E, C>>::new(V, O, a_1_coeffs)
+                let a_1_coeffs = &public_elements
+                    [(r * L + k) * (N * N - O * O)..(r * L + k) * (N * N - O * O) + V * O];
+                Matrix::<Fq<P, E, C>>::from((V, O, a_1_coeffs))
             });
             a_1_r
         });
 
         let a_2: [[Matrix<Fq<P, E, C>>; L]; M] = core::array::from_fn(|r| {
             let a_2_r: [Matrix<Fq<P, E, C>>; L] = core::array::from_fn(|k| {
-                let a_2_coeffs = public_elements[(r * L + k) * (N * N - O * O) + V * O
-                    ..(r * L + k) * (N * N - O * O) + 2 * V * O]
-                    .to_vec();
-                Matrix::<Fq<P, E, C>>::new(O, V, a_2_coeffs)
+                let a_2_coeffs = &public_elements[(r * L + k) * (N * N - O * O) + V * O
+                    ..(r * L + k) * (N * N - O * O) + 2 * V * O];
+                Matrix::<Fq<P, E, C>>::from((O, V, a_2_coeffs))
             });
             a_2_r
         });
 
         let a_3: [[Matrix<Fq<P, E, C>>; L]; M] = core::array::from_fn(|r| {
             let a_3_r: [Matrix<Fq<P, E, C>>; L] = core::array::from_fn(|k| {
-                let a_3_coeffs = public_elements
-                    [(r * L + k) * (N * N - O * O) + 2 * V * O..(r * L + k + 1) * (N * N - O * O)]
-                    .to_vec();
-                Matrix::<Fq<P, E, C>>::new(V, V, a_3_coeffs)
+                let a_3_coeffs = &public_elements
+                    [(r * L + k) * (N * N - O * O) + 2 * V * O..(r * L + k + 1) * (N * N - O * O)];
+                Matrix::<Fq<P, E, C>>::from((V, V, a_3_coeffs))
             });
             a_3_r
         });
@@ -131,7 +128,7 @@ where
                 Matrix::<Fq<P, E, C>>::from_matrices(
                     2,
                     2,
-                    vec![
+                    &[
                         a_zero[r][k].clone(),
                         a_str.1[r][k].clone(),
                         a_str.0[r][k].clone(),
@@ -310,7 +307,7 @@ where
                     x_0 * &Matrix::<Fq<P, E, C>>::from_matrices(
                         1,
                         2,
-                        vec![Matrix::<Fq<P, E, C>>::identity(O), lambda_str],
+                        &[Matrix::<Fq<P, E, C>>::identity(O), lambda_str],
                     ) + v;
 
                 let sigma: [Fq<P, E, C>; N] = core::array::from_fn(|i| sigma_mat.coeffs[i]);
@@ -383,7 +380,7 @@ mod tests {
         let lambda = Matrix::<Fq<31, 61, Level1Config>>::from_matrices(
             1,
             2,
-            vec![Matrix::identity(1), lambda_str],
+            &[Matrix::identity(1), lambda_str],
         );
 
         for r in 0..1 {
