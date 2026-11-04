@@ -199,25 +199,27 @@ where
         let mut high = [<Fp<P> as FiniteField>::zero(); E];
 
         for i in 0..E {
-            for j in 0..E {
-                let prod = self.coeffs[i] * rhs.coeffs[j];
-                if i + j < E {
-                    low[i + j] += prod;
-                } else {
-                    high[i + j - E] += prod;
-                }
+            let split = E - i;
+
+            for j in 0..split {
+                low[i + j] += self.coeffs[i] * rhs.coeffs[j];
+            }
+
+            for j in split..E {
+                high[i + j - E] += self.coeffs[i] * rhs.coeffs[j];
             }
         }
 
         for d in (0..E - 1).rev() {
             let c = high[d];
-            for j in 0..E {
-                let term = c * C::REDUCE_COEFFS[j];
-                if d + j < E {
-                    low[d + j] += term;
-                } else {
-                    high[d + j - E] += term;
-                }
+            let split = E - d;
+
+            for j in 0..split {
+                low[d + j] += c * C::REDUCE_COEFFS[j];
+            }
+
+            for j in split..E {
+                high[d + j - E] += c * C::REDUCE_COEFFS[j];
             }
         }
 
@@ -283,7 +285,7 @@ mod ufs_tests {
     type F = crate::params::F31_61;
 
     #[test]
-    fn fp_field_laws() {
+    fn fq_field_laws() {
         for _ in 0..P {
             let a = F::random(&mut rand_core::OsRng);
             assert_eq!(a + F::zero(), a);
