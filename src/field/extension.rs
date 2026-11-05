@@ -349,6 +349,8 @@ where
 
 #[cfg(test)]
 mod ufs_tests {
+    use std::{assert_eq, println};
+
     use super::*;
 
     const P: u8 = 61;
@@ -373,5 +375,47 @@ mod ufs_tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_reducible_polynomial_detects_zero_divisors() {
+        #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
+        struct ReducibleConfig;
+
+        impl ExtensionConfig<61> for ReducibleConfig {
+            type Field = Fp<31>;
+            const REDUCE_COEFFS: [Fp<31>; 61] = {
+                let mut coeffs = [Self::Field::new(0); 61];
+                coeffs[0] = Fp::new(28);
+                coeffs[1] = Fp::new(6);
+                coeffs[2] = Fp::new(30);
+                coeffs
+            };
+        }
+
+        type BadFq = Fq<31, 61, ReducibleConfig>;
+
+        // a = x^3 + 23*x^2 + 15*x + 2
+        let mut a_coeffs = [Fp::zero(); 61];
+        a_coeffs[0] = Fp::from_canonical(2);
+        a_coeffs[1] = Fp::from_canonical(15);
+        a_coeffs[2] = Fp::from_canonical(23);
+        a_coeffs[3] = Fp::from_canonical(1);
+        let a = BadFq::new(a_coeffs);
+
+        let b_coeffs: [Fp<31>; 61] = [
+            17, 9, 1, 20, 20, 7, 2, 3, 13, 22, 25, 18, 16, 17, 5, 7, 21, 23, 1, 12, 11, 27, 6, 11,
+            21, 23, 30, 27, 30, 23, 27, 14, 7, 21, 3, 27, 16, 2, 20, 5, 26, 1, 1, 30, 11, 6, 15,
+            30, 18, 24, 1, 2, 8, 25, 14, 22, 18, 8, 1, 0, 0,
+        ]
+        .map(Into::into);
+        let b = BadFq::new(b_coeffs);
+
+        assert_ne!(a, BadFq::zero());
+        assert_ne!(b, BadFq::zero());
+
+        let prod = a * b;
+
+        assert_eq!(prod, BadFq::zero());
     }
 }
