@@ -349,8 +349,6 @@ where
 
 #[cfg(test)]
 mod ufs_tests {
-    use std::{print, println};
-
     use super::*;
 
     const P: u8 = 61;
