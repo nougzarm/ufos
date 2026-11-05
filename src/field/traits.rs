@@ -47,10 +47,6 @@ pub trait FiniteField:
     }
 }
 
-pub trait PrimeField: FiniteField {
-    fn as_integer(&self) -> [u8];
-}
-
 pub trait ExtensionConfig<const DEGREE: usize>: Copy + Default + PartialEq + Debug {
     type Field: FiniteField;
 

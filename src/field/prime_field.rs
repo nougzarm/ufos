@@ -1,3 +1,8 @@
+//! # Prime Fields Operations
+//!
+//! This module provides the [`Fp`] structure, which allows for operations on basic prime finite fields
+//! that implement the [`FiniteField`] trait.
+
 use core::ops::{Add, Mul, MulAssign, Sub};
 use rand::Rng;
 use sha3::{
@@ -8,21 +13,66 @@ use std::ops::{AddAssign, Neg, SubAssign};
 
 use crate::field::traits::FiniteField;
 
+/// Prime finite field
+///
+/// Implements the finite field $\mathbb{F}_p$ containing $p$ elements, where $p$ is a prime number.
+/// Such a field can be described as the ring $\mathbb{Z}/p\mathbb{Z}$.
+///
+/// # Type Parameters
+///
+/// * `P` - Field prime cardinal $p$.
+///
+/// # Examples
+///
+/// ```rust
+/// use ufos::field::{
+///     traits::FiniteField,
+///     prime_field::Fp
+/// };
+///
+/// type F = Fp<31>;
+/// let one = F::one();
+/// let x = F::from(3) * one;
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct Fp<const P: u8>(u8);
 
 impl<const P: u8> Fp<P> {
     const CHECK_P: () = assert!(P > 1 && P < (1 << 7), "P must be in 2..2^7");
 
+    /// Creates a field element from a raw `u8` integer, reducing it modulo $p$.
+    ///
+    /// # Arguments
+    ///
+    /// * `val` - An unsigned 8-bit integer.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use ufos::field::prime_field::Fp;
+    ///
+    /// type F = Fp<31>;
+    /// let a = F::new(35);
+    /// assert_eq!(a.value(), 4);
+    /// ```
     pub const fn new(val: u8) -> Self {
         let _ = Self::CHECK_P;
         Self(val % P)
     }
 
+    /// Instantiates a field element assuming `val` is already in canonical form ($0 \le \mathrm{val} < p$).
+    ///
+    /// This bypasses modular division and is intended for performance-critical inner loops
+    /// when the input is guaranteed to be reduced.
+    ///
+    /// # Arguments
+    ///
+    /// * `val` - A pre-reduced integer strictly less than $p$.
     pub const fn from_canonical(val: u8) -> Self {
         Self(val)
     }
 
+    /// Returns the canonical integer representation of the field element in $[0, p - 1]$.
     pub const fn value(self) -> u8 {
         self.0
     }
@@ -37,6 +87,7 @@ impl<const P: u8> From<u8> for Fp<P> {
 impl<const P: u8> Add for &Fp<P> {
     type Output = Fp<P>;
 
+    /// Computes $(a + b) \pmod p$ without integer division.
     fn add(self, rhs: Self) -> Self::Output {
         let sum = self.0 + rhs.0;
         let reduced = if sum >= P { sum - P } else { sum };
@@ -61,6 +112,9 @@ impl<const P: u8> AddAssign for Fp<P> {
 impl<const P: u8> Neg for &Fp<P> {
     type Output = Fp<P>;
 
+    /// Computes the additive inverse $-a \pmod p$.
+    ///
+    /// Maps $0 \mapsto 0$ and $a \mapsto p - a$ for $a > 0$.
     fn neg(self) -> Self::Output {
         Fp::<P>::from(P - self.value())
     }
@@ -77,6 +131,7 @@ impl<const P: u8> Neg for Fp<P> {
 impl<const P: u8> Sub for &Fp<P> {
     type Output = Fp<P>;
 
+    /// Computes $(a - b) \pmod p$ with conditional borrow correction.
     fn sub(self, rhs: Self) -> Self::Output {
         let (diff, borrow) = self.0.overflowing_sub(rhs.0);
         let corr = if borrow { P } else { 0 };
@@ -101,6 +156,7 @@ impl<const P: u8> SubAssign for Fp<P> {
 impl<const P: u8> Mul for &Fp<P> {
     type Output = Fp<P>;
 
+    /// Computes $(a * b) \pmod p$ using a widening 16-bit intermediate product.
     fn mul(self, rhs: Self) -> Self::Output {
         let prod = (self.0 as u16) * (rhs.0 as u16);
 
@@ -123,19 +179,34 @@ impl<const P: u8> MulAssign for Fp<P> {
 }
 
 impl<const P: u8> FiniteField for Fp<P> {
+    /// Returns the additive identity $0 \in \mathbb{F}_p$.
+    #[inline]
     fn zero() -> Self {
-        Self::new(0u8)
+        Self::from_canonical(0u8)
     }
 
+    /// Returns the multiplicative identity $1 \in \mathbb{F}_p$.
+    #[inline]
     fn one() -> Self {
-        Self::new(1u8)
+        Self::from_canonical(1u8)
     }
 
+    /// Samples a uniformly distributed random element from $\mathbb{F}_p$.
+    ///
+    /// # Arguments
+    ///
+    /// * `rng` - Pseudo-random generator reference.
     fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
         let val = rng.gen_range(0..P);
         Self::from_canonical(val)
     }
 
+    /// Deterministically expands a byte seed into a sequence of field elements using `Shake256`.
+    ///
+    /// # Arguments
+    ///
+    /// * `seed` - The input entropy byte slice.
+    /// * `count` - The number of field elements to generate.
     fn expand_from_seed(seed: &[u8], count: usize) -> Vec<Self> {
         let mut hasher = Shake256::default();
         hasher.update(seed);
@@ -153,6 +224,13 @@ impl<const P: u8> FiniteField for Fp<P> {
         list
     }
 
+    /// Computes the multiplicative inverse $a^{-1} \pmod p$ using Fermat's Little Theorem:
+    ///
+    /// $$a^{-1} \equiv a^{p - 2} \pmod p$$
+    ///
+    /// # Panics
+    ///
+    /// Panics if attempting to invert zero ($a = 0$).
     fn inv(&self) -> Self {
         assert!(self.0 != 0);
 

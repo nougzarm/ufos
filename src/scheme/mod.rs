@@ -1,15 +1,44 @@
 use std::assert_eq;
 use std::marker::PhantomData;
 
-use crate::field::extension::Fq;
-use crate::field::prime_field::Fp;
-use crate::field::traits::{ExtensionConfig, FiniteField};
+use crate::field::{
+    extension::Fq,
+    prime_field::Fp,
+    traits::{ExtensionConfig, FiniteField},
+};
 use crate::matrix::Matrix;
 use crate::random::{sample_salt, sample_secret_seed};
 use crate::scheme::traits::{SignatureScheme, UfoParameters};
 
 pub mod traits;
 
+/// The UFOs (*Unbalanced Frobenius Oil and Vinegar*) post-quantum signature scheme.
+///
+/// Implements the structured UFOs signature scheme based on Frobenius automorphisms over
+/// the extension field $\mathbb{F}_{p^e}$.
+///
+/// # Type Parameters
+///
+/// * `P` - Prime field characteristic ($\mathbb{F}_p$).
+/// * `E` - Extension degree ($\mathbb{F}_{p^e} = \mathbb{F}_q$).
+/// * `C` - Extension field configuration and exponent schedule (`ExtensionConfig + UfoParameters`).
+/// * `L` - Number of Frobenius blocks per public equation.
+/// * `N` - Total number of variables ($N = O + V$).
+/// * `M` - Number of public equations (equal to $O$).
+/// * `O` - Dimension of the secret oil subspace.
+/// * `V` - Dimension of the vinegar subspace.
+///
+/// # Examples
+///
+/// ```rust
+/// use ufos::params::Level1Config;
+/// use ufos::scheme::UFOs;
+/// use ufos::scheme::traits::SignatureScheme;
+///
+/// type UfosLevel1 = UFOs<31, 61, Level1Config, 5, 5, 1, 1, 4>;
+/// let scheme = UfosLevel1::new();
+/// let (sk, pk) = scheme.keygen();
+/// ```
 pub struct UFOs<
     const P: u8,
     const E: usize,

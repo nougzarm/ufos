@@ -1,3 +1,13 @@
+//! # Linear Algebra and Matrix Operations
+//!
+//! This module provides the [`Matrix`] struct for performing linear algebra
+//! operations over any field implementing the [`FiniteField`] trait.
+//!
+//! Key features include:
+//! - Block-matrix assembly via [`Matrix::from_matrices`].
+//! - Linear system solving over base fields via [`Matrix::solve_left`].
+//! - Frobenius endomorphism application via [`Matrix::frobenius_pow`].
+
 use core::ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::field::{
@@ -6,6 +16,14 @@ use crate::field::{
     traits::{ExtensionConfig, FiniteField},
 };
 
+/// A structure representing a matrix with a generic entries.
+///
+/// Elements are stored sequentially in a single contiguous [`Vec`] indexed as
+/// `(i, j) \mapsto i \times \mathrm{cols} + j$.
+///
+/// # Type Parameters
+///
+/// * `F` - Scalar structure of the matrix entries.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Matrix<F> {
     pub rows: usize,
@@ -61,10 +79,35 @@ impl<F> Matrix<F>
 where
     F: Copy,
 {
+    /// Creates a new matrix from row and column dimensions and a flattened coefficient buffer.
+    ///
+    /// # Arguments
+    ///
+    /// * `rows` - Number of rows.
+    /// * `cols` - Number of columns.
+    /// * `coeffs` - Row-major vector containing exactly `rows * cols` entries.
     pub fn new(rows: usize, cols: usize, coeffs: Vec<F>) -> Self {
         Self { rows, cols, coeffs }
     }
 
+    /// Assembles a global matrix from a two-dimensional grid of sub-matrix blocks.
+    ///
+    /// Given a grid of dimensions $B_r \times B_c$, this function concatenates the constituent
+    /// blocks row-by-row into a single dense matrix.
+    ///
+    /// # Arguments
+    ///
+    /// * `blocs_rows` - Number of block rows ($B_r$).
+    /// * `blocs_cols` - Number of block columns ($B_c$).
+    /// * `matrices` - Flat slice of blocks in row-major order, with length $B_r \times B_c$.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    /// - `blocs_rows == 0` or `blocs_cols == 0`.
+    /// - `matrices.len() != blocs_rows * blocs_cols`.
+    /// - Sub-matrices in the same row do not share identical row heights.
+    /// - Sub-matrices in the same column do not share identical column widths.
     pub fn from_matrices(blocs_rows: usize, blocs_cols: usize, matrices: &[Matrix<F>]) -> Self {
         assert_eq!(blocs_rows * blocs_cols, matrices.len());
         assert!(blocs_rows > 0 && blocs_cols > 0);
@@ -117,6 +160,10 @@ where
         }
     }
 
+    /// Computes the transpose of a matrix.
+    ///
+    /// For $M \in \mathbb{F}^{R \times C}$, returns ${}^t M \in \mathbb{F}^{C \times R}$
+    /// satisfying $({}^t M)_{j, i} = M_{i, j}$.
     pub fn transpose(&self) -> Self {
         let mut res = Self {
             rows: self.cols,
@@ -131,6 +178,11 @@ where
         res
     }
 
+    /// Extracts the single scalar entry of a $1 \times 1$ matrix.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the matrix dimension is not $1 \times 1$.
     pub fn into_scalar(&self) -> F {
         assert_eq!((self.rows, self.cols), (1, 1));
         self[(0, 0)]
@@ -141,11 +193,22 @@ impl<F> Matrix<F>
 where
     F: FiniteField,
 {
+    /// Instantiates an all-zero matrix $0_{rows \times cols} \in \mathbb{F}^{rows \times cols}$.
+    ///
+    /// # Arguments
+    ///
+    /// * `rows` - Number of rows.
+    /// * `cols` - Number of columns.
     pub fn zero(rows: usize, cols: usize) -> Self {
         let coeffs = vec![F::zero(); rows * cols];
         Self::new(rows, cols, coeffs)
     }
 
+    /// Generates the $n \times n$ identity matrix $1_n$.
+    ///
+    /// # Arguments
+    ///
+    /// * `dimension` - Size $n$ of the square matrix.
     pub fn identity(dimension: usize) -> Self {
         let mut res = Self::zero(dimension, dimension);
         for i in 0..dimension {
@@ -155,8 +218,38 @@ where
         res
     }
 
+    /// Solves the left linear system $X \cdot M = Y$ over a finite field $\mathbb{F}$ using Gauss-Jordan elimination.
+    ///
+    /// Finds the row vector $X \in \mathbb{F}^{1 \times n}$ satisfying the matrix equation
+    /// for a square matrix $A \in \mathbb{F}^{n \times n}$ and right-hand side $Y \in \mathbb{F}^{1 \times n}$.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - The right-hand side vector $Y$, with length equal to `self.rows`.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(X)` if the system has a unique solution, or `None` if the
+    /// matrix is singular ($\det(M) = 0$).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the matrix is not square (`self.rows != self.cols`) or if the
+    /// length of `rhs` does not match the matrix dimension.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use ufos::matrix::Matrix;
+    /// use ufos::field::prime_field::Fp;
+    ///
+    /// let id = Matrix::<Fp<31>>::identity(3);
+    /// let rhs = vec![Fp::new(1), Fp::new(2), Fp::new(3)];
+    /// let sol = id.solve_left(&rhs).unwrap();
+    /// assert_eq!(sol, rhs);
+    /// ```
     pub fn solve_left(&self, rhs: &[F]) -> Option<Vec<F>> {
-        let n = self.rows;
+        let n: usize = self.rows;
         assert_eq!(n, self.cols);
         assert_eq!(n, rhs.len());
 
@@ -208,6 +301,14 @@ impl<const P: u8, const E: usize, C> Matrix<Fq<P, E, C>>
 where
     C: ExtensionConfig<E, Field = Fp<P>>,
 {
+    /// Applies the $a$-th Frobenius automorphism component-wise to all matrix entries.
+    ///
+    /// Computes $M^{[a]} = (m_{i, j}^{p^a})$ for each entry $m_{i, j} \in \mathbb{F}_{p^e}$,
+    /// where exponents $a$ are interpreted modulo $e$.
+    ///
+    /// # Arguments
+    ///
+    /// * `a` - Exponent power of the Frobenius automorphism $\phi^a : x \mapsto x^{p^a}$.
     pub fn frobenius_pow(&self, a: usize) -> Self {
         let mut res = self.clone();
 
@@ -396,6 +497,11 @@ where
 {
     type Output = Matrix<F>;
 
+    /// Multiplies two matrices $A \cdot B$ over $\mathbb{F}$.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the inner dimensions mismatch (`self.cols != rhs.rows`).
     fn mul(self, rhs: &Matrix<F>) -> Self::Output {
         assert_eq!(self.cols, rhs.rows);
         let mut coeffs = vec![F::default(); self.rows * rhs.cols];
